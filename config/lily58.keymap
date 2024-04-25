@@ -29,30 +29,6 @@
             flavor = "balanced";
             bindings = <&kp>, <&kp>;
         };
-        td_v: tap_dance_mod_tap_v {
-            compatible = "zmk,behavior-tap-dance";
-            #binding-cells = <0>;
-            tapping-term-ms = <200>;
-            bindings = <&lt LOWER V>, <&kp V>;
-        };
-        td_b: tap_dance_mod_tap_b {
-            compatible = "zmk,behavior-tap-dance";
-            #binding-cells = <0>;
-            tapping-term-ms = <200>;
-            bindings = <&lt RAISE B>, <&kp B>;
-        };
-        td_n: tap_dance_mod_tap_n {
-            compatible = "zmk,behavior-tap-dance";
-            #binding-cells = <0>;
-            tapping-term-ms = <200>;
-            bindings = <&lt RAISE N>, <&kp N>;
-        };
-        td_m: tap_dance_mod_tap_m {
-            compatible = "zmk,behavior-tap-dance";
-            #binding-cells = <0>;
-            tapping-term-ms = <200>;
-            bindings = <&lt LOWER M>, <&kp M>;
-        };
         td_spc: tap_dance_mod_tap_spc {
             compatible = "zmk,behavior-tap-dance";
             #binding-cells = <0>;
@@ -63,13 +39,13 @@
             compatible = "zmk,behavior-tap-dance";
             #binding-cells = <0>;
             tapping-term-ms = <200>;
-            bindings = <&lt RAISE BSPC>, <&kp BSPC>;
+            bindings = <&lt LOWER BSPC>, <&kp BSPC>;
         };
         td_tab: tap_dance_mod_tap_tab {
             compatible = "zmk,behavior-tap-dance";
             #binding-cells = <0>;
             tapping-term-ms = <200>;
-            bindings = <&lt RAISE TAB>, <&kp TAB>;
+            bindings = <&lt LOWER TAB>, <&kp TAB>;
         };
     };
 
@@ -81,8 +57,8 @@
 &kp EQUAL      &kp N1       &kp N2      &kp N3       &kp N4 &kp N5                      &kp N6 &kp N7 &kp N8          &kp N9        &kp N0          &kp MINUS
 &kp GRAVE      &kp Q        &kp W       &kp E        &kp R  &kp T                       &kp Y  &kp U  &kp I           &kp O         &kp P           &kp BSLH
 &bhm HYPER ESC &kp A        &kp S       &kp D        &kp F  &kp G                       &kp H  &kp J  &kp K           &kp L         &lt MEDIA SEMI  &bhm HYPER SQT
-&kp LSHFT      &bhm LCTRL Z &bhm LALT X &bhm LGUI C &td_v &td_b &kp HYPER   &kp HYPER   &td_n  &td_m  &bhm RGUI COMMA &bhm RALT DOT &bhm RCTRL FSLH &kp RSHFT
-                        &kp LPAR &lt LOWER RPAR &td_bspc    &td_spc &kp RET  &td_tab  &lt LOWER LBKT &kp RBKT
+&kp LSHFT      &bhm LCTRL Z &bhm LALT X &bhm LGUI C  &kp v  &kp B &kp HYPER   &kp HYPER   &kp N  &kp M  &bhm RGUI COMMA &bhm RALT DOT &bhm RCTRL FSLH &kp RSHFT
+                        &kp LPAR &lt RAISE RPAR &td_bspc    &td_spc &kp RET  &td_tab  &lt RAISE LBKT &kp RBKT
             >;
 
             sensor-bindings = <&inc_dec_kp C_VOL_UP C_VOL_DN>;
