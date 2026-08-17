@@ -70,6 +70,17 @@
     tapping-term-ms = <200>;
 };
 
+/*
+ * DECISION: soft-off must be HELD, not tapped. It sits on the DEV layer,
+ * and DEV is reached by holding space (`&lt DEV SPACE`) -- so any stray
+ * hold-space + keypress was one tap away from powering the board down.
+ * hold-time-ms means the key has to be held the full duration before the
+ * release triggers; a bumped tap does nothing.
+ */
+&soft_off {
+    hold-time-ms = <5000>;
+};
+
 / {
 
     behaviors {
@@ -247,14 +258,27 @@
          * bluetooth) are ZMK-only -- wireless concerns the dactyl does not
          * have. `&to GAME` sits here on the top row because the thumb
          * cluster is full; see the GAME layer note above.
+         *
+         * DECISION: only `&ext_power EP_ON` lives here -- EP_OFF and EP_TOG
+         * are gone from this layer and from MEDIA. On this board the
+         * switched rail (nice!nano v2 P0.13) feeds exactly one thing, the
+         * nice!view, and there is no underglow to save power on. So EP_OFF
+         * could only ever blank the display -- and ZMK persists ext-power
+         * state to settings (`ext_power/state`), so a stray press survived
+         * every reboot and the screen stayed dead until a settings_reset
+         * flash. EP_ON is kept as the recovery key for exactly that case.
+         *
+         * soft_off moved off position 9 (a digit you hold-space past all
+         * the time) to the far-right pinky, and now requires a 5s hold --
+         * see the &soft_off override at the top of this file.
          */
         dev_layer {
             display-name = "Dev";
             bindings = <
-&bt BT_CLR &bt BT_SEL 0     &bt BT_SEL 1      &bt BT_SEL 2      &bt BT_SEL 3 &bt BT_SEL 4                 &studio_unlock &caps_word &key_repeat &soft_off &to GAME  &trans
+&bt BT_CLR &bt BT_SEL 0     &bt BT_SEL 1      &bt BT_SEL 2      &bt BT_SEL 3 &bt BT_SEL 4                 &studio_unlock &caps_word &key_repeat &trans    &to GAME  &soft_off
 &kp F1     &kp F2           &kp F3            &kp F4            &kp F5       &kp F6                       &kp F7    &kp F8    &kp F9    &kp F10   &kp F11   &kp F12
 &kp GRAVE  &kp EXCL         &kp AT            &kp HASH          &kp DOLLAR   &kp PRCNT                    &kp LEFT &kp DOWN  &kp UP &kp RIGHT  &kp RPAR  &kp TILDE
-&trans     &ext_power EP_ON &ext_power EP_OFF &ext_power EP_TOG &trans       &trans    &trans   &trans    &trans    &kp MINUS &kp PLUS  &kp LBRC  &kp RBRC  &kp PIPE
+&trans     &ext_power EP_ON &trans            &trans            &trans       &trans    &trans   &trans    &trans    &kp MINUS &kp PLUS  &kp LBRC  &kp RBRC  &kp PIPE
                                               &trans            &trans       &trans    &trans   &trans    &trans    &trans    &trans
             >;
         };
@@ -270,7 +294,7 @@
 &bt BT_CLR &bt BT_SEL 0     &bt BT_SEL 1      &bt BT_SEL 2      &bt BT_SEL 3 &bt BT_SEL 4                 &trans    &trans       &trans       &trans           &trans   &trans
 &kp F1     &kp F2           &kp F3            &kp F4            &kp F5       &kp F6                       &kp F7    &kp C_RW     &kp C_FF     &kp F10          &kp F11  &kp F12
 &kp GRAVE  &kp EXCL         &kp AT            &kp HASH          &kp DOLLAR   &kp PRCNT                    &kp CARET &kp C_PREV   &kp C_NEXT   &kp C_PLAY_PAUSE &trans   &kp TILDE
-&trans     &ext_power EP_ON &ext_power EP_OFF &ext_power EP_TOG &trans       &trans    &trans   &trans    &trans    &kp K_VOL_DN &kp K_VOL_UP &kp K_MUTE       &kp RBRC &kp PIPE
+&trans     &trans           &trans            &trans            &trans       &trans    &trans   &trans    &trans    &kp K_VOL_DN &kp K_VOL_UP &kp K_MUTE       &kp RBRC &kp PIPE
                                               &trans            &trans       &trans    &trans   &trans    &trans    &trans       &trans
             >;
         };
