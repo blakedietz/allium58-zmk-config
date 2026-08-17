@@ -8,10 +8,14 @@
  * Allium58 (lily58 shield) -- kept deliberately in sync with the QMK
  * dactyl_manuform 5x6 keymap in blakedietz/qmk_userspace.
  *
- * WHY THE TWO DIVERGE AT ALL: the dactyl has 72 keys, this board has 58.
- * That 14-key deficit is the source of nearly every difference below --
- * symbols and numbers live on the dactyl's base layer but need layers of
- * their own here, and the dactyl's 6+2 thumb keys per side become 4.
+ * WHY THE TWO DIVERGE AT ALL: the dactyl's LAYOUT_5x6 is 64 keys (32 a side:
+ * 4 rows of 6, plus 2 inner, plus 6 thumb), this board is 58 (29 a side: 3
+ * rows of 6, a row of 7, plus 4 thumb). The 6-key deficit understates it --
+ * the grid actually GAINS one key a side here, and the whole loss lands on
+ * the thumbs, 8 a side down to 4. That is the source of nearly every
+ * difference below: symbols and numbers live on the dactyl's base layer but
+ * need layers of their own here, and the layer taps that the dactyl parks on
+ * dedicated thumb keys have to ride on letters and existing thumbs instead.
  *
  * QMK feature -> ZMK equivalent, so the two configs can be reasoned about
  * together:
