@@ -24,6 +24,14 @@
  *     default in QMK)            this is why backspace needed ltq below)
  *   MOUSEKEY_* speed tuning   -> not a keymap concern in ZMK; set on the
  *                                input listener / CONFIG_ZMK_POINTING
+ *
+ * FORMATTING: the bindings grids below are aligned by qmk.nvim on save
+ * (variant = "zmk"); the 14-column lily58 layout lives in
+ * lua/plugins/qmk.nvim.lua in the nvim config. It rewrites each
+ * `bindings = < ... >` block from the parsed behaviors, so a commented-out
+ * binding INSIDE one of those blocks is dropped on save -- comment things
+ * out between the layer nodes instead, as these blocks do.
+ * Outside Neovim: nvim --headless config/lily58.keymap -c 'write' -c 'qa'
  */
 
 #include <behaviors.dtsi>
@@ -33,6 +41,7 @@
 #include <dt-bindings/zmk/pointing.h>
 
 #define HYPER LC(LS(LA(LGUI)))
+#define MEH   LC(LS(LALT))
 
 /*
  * DECISION: layers 0-4 are a 1:1 mirror of QMK -- same names AND same
@@ -160,6 +169,75 @@
             flavor = "tap-preferred";
             bindings = <&mo>, <&kp>;
         };
+
+        /*
+         * htl -- hold-to-switch-layer, for the LBKT+RBKT combos below. A
+         * combo fires the instant its keys go down, and `&to` is a sticky,
+         * whole-left-hand change in either direction; firing one on a fast
+         * `[]` roll -- or dropping out of GAME mid-fight -- would be
+         * miserable. Wrapping it in a hold-tap means the combo only commits
+         * after the keys are held the full term.
+         *
+         * DECISION: tap-preferred, not hold-preferred. hold-preferred
+         * resolves to the hold as soon as ANY other key is pressed, which
+         * would re-open exactly the accident this is meant to prevent --
+         * only the timer may decide. The tap side is &none (dummy param 0
+         * in the keymap): a quick both-press is a no-op, not a stray key.
+         */
+        htl: hold_to_layer {
+            compatible = "zmk,behavior-hold-tap";
+            #binding-cells = <2>;
+            tapping-term-ms = <400>;
+            flavor = "tap-preferred";
+            bindings = <&to>, <&none>;
+        };
+    };
+
+    /*
+     * LBKT + RBKT (positions 56/57, the two outer right thumbs) held
+     * together toggles between BASE and GAME -- the SAME gesture in both
+     * directions, so it is one thumb position to remember rather than a
+     * chord in and a different key out.
+     *
+     * `&to GAME` on DEV's top row still stands as the discoverable route in;
+     * these combos are the fast ones. The dactyl has a spare thumb key for
+     * TO(_GAME) and this board does not, which is why DEV carried it at all.
+     *
+     * DECISION: two nodes scoped with `layers`, not one unscoped combo. The
+     * binding has to differ by direction (&to GAME vs &to BASE), and an
+     * unscoped combo would also fire on DEV/MEDIA/SYM/NUM where these
+     * positions are &trans.
+     *
+     * DECISION: `&to BASE` STAYS on GAME position 57 as a single-tap escape
+     * hatch, so the combo is not the only way out of a layer that has no
+     * other layer access at all. Drop it to &kp RBKT once the combo is
+     * confirmed working on hardware, if the plain key is wanted back.
+     *
+     * DECISION: require-prior-idle-ms on the BASE->GAME direction only. On
+     * BASE these keys are `[` and `]`, so the idle guard is what keeps a
+     * typed `[]` roll out of the combo; 50ms then means anything surviving
+     * that has to be a deliberate simultaneous press. On GAME the same guard
+     * would be actively wrong -- you are pressing keys constantly, so it
+     * would make the way out unreachable exactly when it is wanted. The
+     * 400ms hold in &htl above is the backstop in both directions.
+     */
+    combos {
+        compatible = "zmk,combos";
+
+        combo_game {
+            bindings = <&htl GAME 0>;
+            key-positions = <56 57>;
+            layers = <BASE>;
+            timeout-ms = <50>;
+            require-prior-idle-ms = <125>;
+        };
+
+        combo_base {
+            bindings = <&htl BASE 0>;
+            key-positions = <56 57>;
+            layers = <GAME>;
+            timeout-ms = <50>;
+        };
     };
 
     keymap {
@@ -195,11 +273,11 @@
         base_layer {
             display-name = "Base";
             bindings = <
-&kp EQUAL      &kp N1       &kp N2      &kp N3       &kp N4 &kp N5                      &kp N6 &kp N7 &kp N8          &kp N9        &kp N0          &kp MINUS
-&kp GRAVE      &kp Q        &kp W       &kp E        &kp R  &kp T                       &kp Y  &kp U  &kp I           &kp O         &kp P           &kp BSLH
-&hml HYPER ESC &kp A        &kp S       &kp D        &kp F  &kp G                       &kp H  &kp J  &kp K           &kp L         &rpl MEDIA SEMI  &hmr HYPER SQT
-&kp LSHFT      &hml LCTRL Z &hml LALT X &hml LGUI C &rpl SYM V   &rpl NUM B   &kp HYPER   &kp HYPER &rpl NUM N    &rpl SYM M    &hmr RGUI COMMA &hmr RALT DOT &hmr RCTRL FSLH &kp RSHFT
-                        &kp LPAR &lt SYM RPAR   &ltq NUM BSPC     &lt DEV SPACE  &lt MOUSE RET  &kp TAB  &lt SYM LBKT   &kp RBKT
+  &kp EQUAL        &kp N1         &kp N2        &kp N3        &kp N4         &kp N5                                          &kp N6       &kp N7         &kp N8            &kp N9          &kp N0            &kp MINUS
+  &kp GRAVE        &kp Q          &kp W         &kp E         &kp R          &kp T                                           &kp Y        &kp U          &kp I             &kp O           &kp P             &kp BSLH
+  &hml HYPER ESC   &kp A          &kp S         &kp D         &kp F          &kp G                                           &kp H        &kp J          &kp K             &kp L           &rpl MEDIA SEMI   &hmr HYPER SQT
+  &kp LSHFT        &hml LCTRL Z   &hml LALT X   &hml LGUI C   &rpl SYM V     &rpl NUM B      &kp MEH         &kp MEH         &rpl NUM N   &rpl SYM M     &hmr RGUI COMMA   &hmr RALT DOT   &hmr RCTRL FSLH   &kp RSHFT
+                                                &kp LPAR      &lt SYM RPAR   &ltq NUM BSPC   &lt DEV SPACE   &lt MOUSE RET   &kp TAB      &lt SYM LBKT   &kp RBKT
             >;
         };
 
@@ -234,6 +312,10 @@
          * spare one -- all 4 right thumbs are already assigned. `&to BASE`
          * on the right thumb is the way out, matching QMK's TO(_BASE).
          *
+         * Both directions also have the LBKT+RBKT hold combo (positions
+         * 56/57) -- see the combos node above. That is the symmetric route;
+         * the `&to BASE` tap on 57 is kept as a single-key escape hatch.
+         *
          * GAP: QMK puts QK_LOCK on both thumb clusters here (hold a key
          * without holding it -- lock W for auto-run, etc). ZMK has no
          * built-in equivalent; &sk covers modifiers only, not arbitrary
@@ -242,11 +324,11 @@
         game_layer {
             display-name = "Game";
             bindings = <
-&kp EQUAL &kp N1  &kp N2  &kp N3  &kp N4 &kp N5                          &kp N6 &kp N7 &kp N8          &kp N9        &kp N0          &kp MINUS
-&kp GRAVE &kp Q   &kp E   &kp W   &kp R  &kp T                           &kp Y  &kp U  &kp I           &kp O         &kp P           &kp BSLH
-&kp ESC   &kp C   &kp A   &kp S   &kp D  &kp G                           &kp H  &kp J  &kp K           &kp L         &rpl MEDIA SEMI &kp SQT
-&kp LSHFT &kp Z   &kp X   &kp F   &kp V  &kp B  &kp HYPER      &kp HYPER &kp N  &kp M  &hmr RGUI COMMA &hmr RALT DOT &hmr RCTRL FSLH &kp RSHFT
-                          &kp LALT &kp LCTRL &kp BSPC &kp SPACE     &kp RET &kp TAB &kp LBKT &to BASE
+  &kp EQUAL   &kp N1   &kp N2   &kp N3     &kp N4      &kp N5                           &kp N6    &kp N7     &kp N8            &kp N9          &kp N0            &kp MINUS
+  &kp GRAVE   &kp Q    &kp E    &kp W      &kp R       &kp T                            &kp Y     &kp U      &kp I             &kp O           &kp P             &kp BSLH
+  &kp ESC     &kp C    &kp A    &kp S      &kp D       &kp G                            &kp H     &kp J      &kp K             &kp L           &rpl MEDIA SEMI   &kp SQT
+  &kp LSHFT   &kp Z    &kp X    &kp F      &kp V       &kp B      &kp MEH     &kp MEH   &kp N     &kp M      &hmr RGUI COMMA   &hmr RALT DOT   &hmr RCTRL FSLH   &kp RSHFT
+                                &kp LALT   &kp LCTRL   &kp BSPC   &kp SPACE   &kp RET   &kp TAB   &kp LBKT   &to BASE
             >;
         };
 
@@ -275,11 +357,11 @@
         dev_layer {
             display-name = "Dev";
             bindings = <
-&bt BT_CLR &bt BT_SEL 0     &bt BT_SEL 1      &bt BT_SEL 2      &bt BT_SEL 3 &bt BT_SEL 4                 &studio_unlock &caps_word &key_repeat &trans    &to GAME  &soft_off
-&kp F1     &kp F2           &kp F3            &kp F4            &kp F5       &kp F6                       &kp F7    &kp F8    &kp F9    &kp F10   &kp F11   &kp F12
-&kp GRAVE  &kp EXCL         &kp AT            &kp HASH          &kp DOLLAR   &kp PRCNT                    &kp LEFT &kp DOWN  &kp UP &kp RIGHT  &kp RPAR  &kp TILDE
-&trans     &ext_power EP_ON &trans            &trans            &trans       &trans    &trans   &trans    &trans    &kp MINUS &kp PLUS  &kp LBRC  &kp RBRC  &kp PIPE
-                                              &trans            &trans       &trans    &trans   &trans    &trans    &trans    &trans
+  &bt BT_CLR   &bt BT_SEL 0       &bt BT_SEL 1   &bt BT_SEL 2   &bt BT_SEL 3   &bt BT_SEL 4                     &studio_unlock   &caps_word   &key_repeat   &trans      &to GAME   &soft_off
+  &kp F1       &kp F2             &kp F3         &kp F4         &kp F5         &kp F6                           &kp F7           &kp F8       &kp F9        &kp F10     &kp F11    &kp F12
+  &kp GRAVE    &kp EXCL           &kp AT         &kp HASH       &kp DOLLAR     &kp PRCNT                        &kp LEFT         &kp DOWN     &kp UP        &kp RIGHT   &kp RPAR   &kp TILDE
+  &trans       &ext_power EP_ON   &trans         &trans         &trans         &trans         &trans   &trans   &trans           &kp MINUS    &kp PLUS      &kp LBRC    &kp RBRC   &kp PIPE
+                                                 &trans         &trans         &trans         &trans   &trans   &trans           &trans       &trans
             >;
         };
 
@@ -291,11 +373,11 @@
         media_layer {
             display-name = "Media";
             bindings = <
-&bt BT_CLR &bt BT_SEL 0     &bt BT_SEL 1      &bt BT_SEL 2      &bt BT_SEL 3 &bt BT_SEL 4                 &trans    &trans       &trans       &trans           &trans   &trans
-&kp F1     &kp F2           &kp F3            &kp F4            &kp F5       &kp F6                       &kp F7    &kp C_RW     &kp C_FF     &kp F10          &kp F11  &kp F12
-&kp GRAVE  &kp EXCL         &kp AT            &kp HASH          &kp DOLLAR   &kp PRCNT                    &kp CARET &kp C_PREV   &kp C_NEXT   &kp C_PLAY_PAUSE &trans   &kp TILDE
-&trans     &trans           &trans            &trans            &trans       &trans    &trans   &trans    &trans    &kp K_VOL_DN &kp K_VOL_UP &kp K_MUTE       &kp RBRC &kp PIPE
-                                              &trans            &trans       &trans    &trans   &trans    &trans    &trans       &trans
+  &bt BT_CLR   &bt BT_SEL 0   &bt BT_SEL 1   &bt BT_SEL 2   &bt BT_SEL 3   &bt BT_SEL 4                     &trans      &trans         &trans         &trans             &trans     &trans
+  &kp F1       &kp F2         &kp F3         &kp F4         &kp F5         &kp F6                           &kp F7      &kp C_RW       &kp C_FF       &kp F10            &kp F11    &kp F12
+  &kp GRAVE    &kp EXCL       &kp AT         &kp HASH       &kp DOLLAR     &kp PRCNT                        &kp CARET   &kp C_PREV     &kp C_NEXT     &kp C_PLAY_PAUSE   &trans     &kp TILDE
+  &trans       &trans         &trans         &trans         &trans         &trans         &trans   &trans   &trans      &kp K_VOL_DN   &kp K_VOL_UP   &kp K_MUTE         &kp RBRC   &kp PIPE
+                                             &trans         &trans         &trans         &trans   &trans   &trans      &trans         &trans
             >;
         };
 
@@ -316,11 +398,11 @@
         mouse_layer {
             display-name = "Mouse";
             bindings = <
-&trans &trans &trans          &trans          &trans           &trans                  &trans &trans         &trans       &trans &trans &trans
-&trans &trans &trans          &mmv MOVE_UP    &trans           &trans                  &trans &msc SCRL_DOWN &msc SCRL_UP &trans &trans &trans
-&trans &trans &mmv MOVE_LEFT  &mmv MOVE_DOWN  &mmv MOVE_RIGHT  &trans                  &trans &mkp LCLK      &mkp RCLK    &trans &trans &trans
-&trans &trans &trans          &trans          &trans           &trans  &trans   &trans &trans &trans         &trans       &trans &trans &trans
-                                              &trans  &trans   &trans  &trans   &trans &trans &trans         &trans
+  &trans   &trans   &trans           &trans           &trans            &trans                     &trans   &trans           &trans         &trans   &trans   &trans
+  &trans   &trans   &trans           &mmv MOVE_UP     &trans            &trans                     &trans   &msc SCRL_DOWN   &msc SCRL_UP   &trans   &trans   &trans
+  &trans   &trans   &mmv MOVE_LEFT   &mmv MOVE_DOWN   &mmv MOVE_RIGHT   &trans                     &trans   &mkp LCLK        &mkp RCLK      &trans   &trans   &trans
+  &trans   &trans   &trans           &trans           &trans            &trans   &trans   &trans   &trans   &trans           &trans         &trans   &trans   &trans
+                                     &trans           &trans            &trans   &trans   &trans   &trans   &trans           &trans
             >;
         };
 
@@ -334,11 +416,11 @@
         sym_layer {
             display-name = "Sym";
             bindings = <
-&bt BT_CLR &bt BT_SEL 0 &bt BT_SEL 1 &bt BT_SEL 2 &bt BT_SEL 3 &bt BT_SEL 4                  &trans    &trans    &trans    &trans    &trans   &trans
-&trans     &kp EXCL     &kp AT       &kp HASH     &kp DOLLAR   &kp PRCNT                     &kp CARET &kp AMPS  &kp ASTRK &kp LPAR  &kp RPAR &trans
-&trans     &kp PLUS     &kp EQUAL    &kp LPAR     &kp RPAR     &kp DQT                       &kp COLON &kp RBKT  &kp LBKT  &kp RBRC  &kp LBRC &trans
-&trans     &kp LT       &kp PIPE     &kp MINUS    &kp GT       &kp BSLH     &trans    &trans &kp GRAVE &kp UNDER &kp FSLH  &kp TILDE &kp SEMI &trans
-                                                  &trans       &trans       &trans    &trans &trans    &trans    &trans    &trans
+  &bt BT_CLR   &bt BT_SEL 0   &bt BT_SEL 1   &bt BT_SEL 2   &bt BT_SEL 3   &bt BT_SEL 4                     &trans      &trans      &trans      &trans      &trans     &trans
+  &trans       &kp EXCL       &kp AT         &kp HASH       &kp DOLLAR     &kp PRCNT                        &kp CARET   &kp AMPS    &kp ASTRK   &kp LPAR    &kp RPAR   &trans
+  &trans       &kp PLUS       &kp EQUAL      &kp LPAR       &kp RPAR       &kp DQT                          &kp COLON   &kp RBKT    &kp LBKT    &kp RBRC    &kp LBRC   &trans
+  &trans       &kp LT         &kp PIPE       &kp MINUS      &kp GT         &kp BSLH       &trans   &trans   &kp GRAVE   &kp UNDER   &kp FSLH    &kp TILDE   &kp SEMI   &trans
+                                             &trans         &trans         &trans         &trans   &trans   &trans      &trans      &trans
             >;
         };
 
@@ -355,11 +437,11 @@
         num_layer {
             display-name = "Num";
             bindings = <
-&trans    &trans &trans &trans  &trans  &trans                       &trans      &trans    &trans    &trans   &trans    &trans
-&kp GRAVE &kp N1 &kp N2 &kp N3  &kp N4  &kp N5                       &kp N6      &kp N7    &kp N8    &kp N9   &kp N0    &trans
-&kp F1    &kp F2 &kp F3 &kp F4  &kp F5  &kp F6                       &trans      &trans    &trans    &trans   &kp RIGHT &trans
-&kp F7    &kp F8 &kp F9 &kp F10 &kp F11 &kp F12   &trans   &trans    &kp KP_PLUS &kp MINUS &kp EQUAL &kp LBKT &kp RBKT  &kp BSLH
-                        &trans  &trans  &trans    &trans   &trans    &trans      &trans    &trans
+  &trans      &trans   &trans   &trans    &trans    &trans                      &trans        &trans      &trans      &trans     &trans      &trans
+  &kp GRAVE   &kp N1   &kp N2   &kp N3    &kp N4    &kp N5                      &kp N6        &kp N7      &kp N8      &kp N9     &kp N0      &trans
+  &kp F1      &kp F2   &kp F3   &kp F4    &kp F5    &kp F6                      &trans        &trans      &trans      &trans     &kp RIGHT   &trans
+  &kp F7      &kp F8   &kp F9   &kp F10   &kp F11   &kp F12   &trans   &trans   &kp KP_PLUS   &kp MINUS   &kp EQUAL   &kp LBKT   &kp RBKT    &kp BSLH
+                                &trans    &trans    &trans    &trans   &trans   &trans        &trans      &trans
             >;
         };
     };
