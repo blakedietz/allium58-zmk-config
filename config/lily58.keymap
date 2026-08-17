@@ -4,6 +4,28 @@
  * SPDX-License-Identifier: MIT
  */
 
+/*
+ * Allium58 (lily58 shield) -- kept deliberately in sync with the QMK
+ * dactyl_manuform 5x6 keymap in blakedietz/qmk_userspace.
+ *
+ * WHY THE TWO DIVERGE AT ALL: the dactyl has 72 keys, this board has 58.
+ * That 14-key deficit is the source of nearly every difference below --
+ * symbols and numbers live on the dactyl's base layer but need layers of
+ * their own here, and the dactyl's 6+2 thumb keys per side become 4.
+ *
+ * QMK feature -> ZMK equivalent, so the two configs can be reasoned about
+ * together:
+ *
+ *   CHORDAL_HOLD              -> hold-trigger-key-positions on hml/hmr
+ *                                (both express "only hold if the next key
+ *                                 is on the other hand")
+ *   FLOW_TAP_TERM 150         -> require-prior-idle-ms = <125>
+ *   QUICK_TAP_TERM (on by     -> quick-tap-ms (OFF by default in ZMK --
+ *     default in QMK)            this is why backspace needed ltq below)
+ *   MOUSEKEY_* speed tuning   -> not a keymap concern in ZMK; set on the
+ *                                input listener / CONFIG_ZMK_POINTING
+ */
+
 #include <behaviors.dtsi>
 #include <dt-bindings/zmk/keys.h>
 #include <dt-bindings/zmk/bt.h>
@@ -12,12 +34,38 @@
 
 #define HYPER LC(LS(LA(LGUI)))
 
-#define DEFAULT 0
-#define LOWER 1
-#define RAISE 2
+/*
+ * DECISION: layers 0-4 are a 1:1 mirror of QMK -- same names AND same
+ * indices -- so the two keymaps can be read side by side without a
+ * translation table:
+ *
+ *     QMK _BASE  0 == BASE  0        QMK _MEDIA 3 == MEDIA 3
+ *     QMK _GAME  1 == GAME  1        QMK _MOUSE 4 == MOUSE 4
+ *     QMK _DEV   2 == DEV   2
+ *
+ * SYM and NUM have no QMK counterpart, so they are appended at 5-6 rather
+ * than interleaved -- that keeps the shared indices stable if either side
+ * grows a layer later.
+ *
+ * NOTE: in ZMK the layer index is the ORDER OF THE NODES in the keymap
+ * block below, not the value of these defines. The two must be kept in
+ * agreement by hand; the defines are only names for the bindings.
+ */
+#define BASE  0
+#define GAME  1
+#define DEV   2
 #define MEDIA 3
-#define DEV 4
+#define MOUSE 4
+#define SYM   5
+#define NUM   6
 
+/*
+ * DECISION: the global &lt override sets tapping-term ONLY -- deliberately
+ * no quick-tap-ms here. Space is `&lt DEV SPACE`, and a global quick-tap
+ * would force a literal space (swallowing the DEV layer) any time the key
+ * is held within quick-tap-ms of the previous space. Keys that genuinely
+ * want quick-tap opt in via &ltq instead.
+ */
 &lt {
     tapping-term-ms = <200>;
 };
@@ -25,6 +73,18 @@
 / {
 
     behaviors {
+        /*
+         * hml / hmr -- home row mods. Together these are ZMK's answer to
+         * QMK's CHORDAL_HOLD: a mod only engages if the NEXT key pressed is
+         * on the opposite hand, so same-hand rolls like `zx` emit letters
+         * instead of Ctrl-X. QMK derives handedness from the matrix half
+         * (see chordal_hold_handedness() in keymap.c); ZMK has no such
+         * helper, so the opposite hand is enumerated by key position.
+         *
+         * require-prior-idle-ms = 125 mirrors QMK's FLOW_TAP_TERM 150: if
+         * you were already typing, the key resolves as a tap immediately
+         * and never as a mod.
+         */
         hml: home_row_mod_left {
             compatible = "zmk,behavior-hold-tap";
             #binding-cells = <2>;
@@ -49,6 +109,11 @@
             hold-trigger-key-positions = <0 1 2 3 4 5 12 13 14 15 16 17 24 25 26 27 28 29 36 37 38 39 40 41 42 50 51 52 53 54 55 56 57>;
         };
 
+        /*
+         * rpl -- same idle guard as the home row mods, but the hold engages
+         * a LAYER instead of a modifier. Used for the layer taps that sit on
+         * letter keys, where a stray hold mid-word would be most disruptive.
+         */
         rpl: require_prior_idle_layer {
             compatible = "zmk,behavior-hold-tap";
             #binding-cells = <2>;
@@ -58,42 +123,149 @@
             flavor = "balanced";
             bindings = <&mo>, <&kp>;
         };
+
+        /*
+         * ltq -- identical to the built-in &lt (tap-preferred, 200ms term)
+         * but with quick-tap enabled. Tap the key, then press it again
+         * within quick-tap-ms and the SECOND press is forced to the tap
+         * behavior and held down, so the host's key repeat streams the
+         * keycode instead of the layer engaging.
+         *
+         * This is ZMK's equivalent of QMK's QUICK_TAP_TERM -- the
+         * tap-then-tap-and-hold trick for backspace. QMK enables it by
+         * default; ZMK's quick-tap-ms defaults to -1 (disabled), which is
+         * why this had to be spelled out.
+         *
+         * DECISION: no require-prior-idle-ms here, unlike rpl above. Idle
+         * guarding would force a tap whenever you reach for the key right
+         * after typing -- which for backspace is precisely the common case,
+         * and would make the layer hold unreachable.
+         */
+        ltq: layer_tap_quick {
+            compatible = "zmk,behavior-hold-tap";
+            #binding-cells = <2>;
+            quick-tap-ms = <200>;
+            tapping-term-ms = <200>;
+            flavor = "tap-preferred";
+            bindings = <&mo>, <&kp>;
+        };
     };
 
     keymap {
         compatible = "zmk,keymap";
 
-        default_layer {
+        /*
+         * Layer 0 -- QMK _BASE.
+         *
+         * display-name is what the nice_view OLED and ZMK Studio show
+         * (CONFIG_ZMK_DISPLAY=y, and the left half builds with
+         * -DCONFIG_ZMK_STUDIO=y), so these strings are user-facing, not
+         * just documentation.
+         *
+         * THUMB ROW, against the dactyl's right thumb cluster:
+         *
+         *     QMK TGL_MOUSE = LT(_MOUSE, KC_ENT)  ==  &lt MOUSE RET
+         *     QMK KC_TAB                          ==  &kp TAB
+         *     QMK KC_LBRC                         ==  &lt SYM LBKT
+         *     QMK KC_RBRC                         ==  &kp RBKT
+         *
+         * DECISION: Enter carries the mouse layer, matching QMK. Tab was
+         * NOT moved to get there -- Enter was already the layer-tap in that
+         * position and was simply repointed from the old RAISE layer.
+         *
+         * DECISION: Enter stays on plain &lt, not &ltq. Backspace wants
+         * tap-then-hold repeat; a repeating Enter key is mostly a way to
+         * fire off blank lines by accident. Swap to `&ltq MOUSE RET` if
+         * that turns out to be wanted.
+         *
+         * The SYM hold on LBKT has no QMK counterpart -- it is one of the
+         * layer taps this board needs and the dactyl does not.
+         */
+        base_layer {
+            display-name = "Base";
             bindings = <
 &kp EQUAL      &kp N1       &kp N2      &kp N3       &kp N4 &kp N5                      &kp N6 &kp N7 &kp N8          &kp N9        &kp N0          &kp MINUS
 &kp GRAVE      &kp Q        &kp W       &kp E        &kp R  &kp T                       &kp Y  &kp U  &kp I           &kp O         &kp P           &kp BSLH
 &hml HYPER ESC &kp A        &kp S       &kp D        &kp F  &kp G                       &kp H  &kp J  &kp K           &kp L         &rpl MEDIA SEMI  &hmr HYPER SQT
-&kp LSHFT      &hml LCTRL Z &hml LALT X &hml LGUI C &rpl LOWER V &rpl RAISE B &kp HYPER   &kp HYPER &rpl RAISE N  &rpl LOWER M  &hmr RGUI COMMA &hmr RALT DOT &hmr RCTRL FSLH &kp RSHFT
-                        &kp LPAR &lt LOWER RPAR &lt RAISE BSPC    &lt DEV SPACE  &lt RAISE RET  &kp TAB  &lt LOWER LBKT &kp RBKT
+&kp LSHFT      &hml LCTRL Z &hml LALT X &hml LGUI C &rpl SYM V   &rpl NUM B   &kp HYPER   &kp HYPER &rpl NUM N    &rpl SYM M    &hmr RGUI COMMA &hmr RALT DOT &hmr RCTRL FSLH &kp RSHFT
+                        &kp LPAR &lt SYM RPAR   &ltq NUM BSPC     &lt DEV SPACE  &lt MOUSE RET  &kp TAB  &lt SYM LBKT   &kp RBKT
             >;
         };
 
-        lower_layer {
+        /*
+         * Layer 1 -- QMK _GAME. Transcribed from keymap.c:45-52.
+         *
+         * *** THE LEFT-HAND ALPHAS ARE INTENTIONALLY REARRANGED. ***
+         * *** DO NOT "CORRECT" THEM BACK TO QWERTY ORDER.        ***
+         *
+         * The WASD cross is shifted one column right of its QWERTY home:
+         *
+         *            col1(pinky) col2(ring) col3(mid) col4(index)
+         *   BASE r2:     Q          W          E         R
+         *   BASE r3:     A          S          D         F
+         *   GAME r2:     Q          E          W         R
+         *   GAME r3:     C          A          S         D
+         *
+         * On BASE, WASD lands on pinky/ring/middle and leaves the index
+         * finger idle. On GAME it lands on ring/middle/index -- the three
+         * strong fingers -- and frees the pinky for Shift. C takes the
+         * vacated pinky home slot; F drops to row3 col3. The payoff is that
+         * games can keep their stock WASD bindings: the ergonomics come
+         * from the firmware, so no game needs individual remapping.
+         *
+         * Everything else follows the dactyl: home row mods and thumb
+         * layer taps drop to plain keys so held keys register with no
+         * tapping-term latency, and the RIGHT hand keeps its mods (as QMK
+         * does) since only the left hand is on WASD.
+         *
+         * DECISION: entered via `&to GAME` on the DEV layer, not from BASE.
+         * QMK puts TO(_GAME) on a dedicated thumb key and this board has no
+         * spare one -- all 4 right thumbs are already assigned. `&to BASE`
+         * on the right thumb is the way out, matching QMK's TO(_BASE).
+         *
+         * GAP: QMK puts QK_LOCK on both thumb clusters here (hold a key
+         * without holding it -- lock W for auto-run, etc). ZMK has no
+         * built-in equivalent; &sk covers modifiers only, not arbitrary
+         * keys. Those two positions carry BSPC/SPACE and RET/TAB instead.
+         */
+        game_layer {
+            display-name = "Game";
             bindings = <
-&bt BT_CLR &bt BT_SEL 0 &bt BT_SEL 1 &bt BT_SEL 2 &bt BT_SEL 3 &bt BT_SEL 4                  &trans    &trans    &trans    &trans    &trans   &trans
-&trans     &kp EXCL     &kp AT       &kp HASH     &kp DOLLAR   &kp PRCNT                     &kp CARET &kp AMPS  &kp ASTRK &kp LPAR  &kp RPAR &trans
-&trans     &kp PLUS     &kp EQUAL    &kp LPAR     &kp RPAR     &kp DQT                       &kp COLON &kp RBKT  &kp LBKT  &kp RBRC  &kp LBRC &trans
-&trans     &kp LT       &kp PIPE     &kp MINUS    &kp GT       &kp BSLH     &trans    &trans &kp GRAVE &kp UNDER &kp FSLH  &kp TILDE &kp SEMI &trans
-                                                  &trans       &trans       &trans    &trans &trans    &trans    &trans    &trans
+&kp EQUAL &kp N1  &kp N2  &kp N3  &kp N4 &kp N5                          &kp N6 &kp N7 &kp N8          &kp N9        &kp N0          &kp MINUS
+&kp GRAVE &kp Q   &kp E   &kp W   &kp R  &kp T                           &kp Y  &kp U  &kp I           &kp O         &kp P           &kp BSLH
+&kp ESC   &kp C   &kp A   &kp S   &kp D  &kp G                           &kp H  &kp J  &kp K           &kp L         &rpl MEDIA SEMI &kp SQT
+&kp LSHFT &kp Z   &kp X   &kp F   &kp V  &kp B  &kp HYPER      &kp HYPER &kp N  &kp M  &hmr RGUI COMMA &hmr RALT DOT &hmr RCTRL FSLH &kp RSHFT
+                          &kp LALT &kp LCTRL &kp BSPC &kp SPACE     &kp RET &kp TAB &kp LBKT &to BASE
             >;
         };
 
-        raise_layer {
+        /*
+         * Layer 2 -- QMK _DEV. Arrows on the right home row and F-keys on
+         * the left, matching the dactyl.
+         *
+         * The board-management keys (studio_unlock, soft_off, ext_power,
+         * bluetooth) are ZMK-only -- wireless concerns the dactyl does not
+         * have. `&to GAME` sits here on the top row because the thumb
+         * cluster is full; see the GAME layer note above.
+         */
+        dev_layer {
+            display-name = "Dev";
             bindings = <
-&trans    &trans &trans &trans  &trans  &trans                       &trans      &trans    &trans    &trans   &trans    &trans
-&kp GRAVE &kp N1 &kp N2 &mmv MOVE_UP  &kp N4  &kp N5                       &kp N6      &kp N7    &kp N8    &kp N9   &kp N0    &trans
-&kp F1    &kp F2 &mmv MOVE_LEFT &mmv MOVE_DOWN  &mmv MOVE_RIGHT  &kp F6                       &trans      &mkp LCLK  &mkp RCLK  &trans   &kp RIGHT &trans
-&kp F7    &kp F8 &kp F9 &kp F10 &kp F11 &kp F12   &trans   &trans    &kp KP_PLUS &kp MINUS &kp EQUAL &kp LBKT &kp RBKT  &kp BSLH
-                        &trans  &trans  &trans    &trans   &trans    &trans      &trans    &trans
+&bt BT_CLR &bt BT_SEL 0     &bt BT_SEL 1      &bt BT_SEL 2      &bt BT_SEL 3 &bt BT_SEL 4                 &studio_unlock &caps_word &key_repeat &soft_off &to GAME  &trans
+&kp F1     &kp F2           &kp F3            &kp F4            &kp F5       &kp F6                       &kp F7    &kp F8    &kp F9    &kp F10   &kp F11   &kp F12
+&kp GRAVE  &kp EXCL         &kp AT            &kp HASH          &kp DOLLAR   &kp PRCNT                    &kp LEFT &kp DOWN  &kp UP &kp RIGHT  &kp RPAR  &kp TILDE
+&trans     &ext_power EP_ON &ext_power EP_OFF &ext_power EP_TOG &trans       &trans    &trans   &trans    &trans    &kp MINUS &kp PLUS  &kp LBRC  &kp RBRC  &kp PIPE
+                                              &trans            &trans       &trans    &trans   &trans    &trans    &trans    &trans
             >;
         };
 
-        media {
+        /*
+         * Layer 3 -- QMK _MEDIA. Transport and volume on the right home and
+         * bottom rows, as on the dactyl. Reached by holding SEMI, which is
+         * where QMK puts TGL_MEDIA = LT(_MEDIA, KC_SCLN).
+         */
+        media_layer {
+            display-name = "Media";
             bindings = <
 &bt BT_CLR &bt BT_SEL 0     &bt BT_SEL 1      &bt BT_SEL 2      &bt BT_SEL 3 &bt BT_SEL 4                 &trans    &trans       &trans       &trans           &trans   &trans
 &kp F1     &kp F2           &kp F3            &kp F4            &kp F5       &kp F6                       &kp F7    &kp C_RW     &kp C_FF     &kp F10          &kp F11  &kp F12
@@ -103,13 +275,67 @@
             >;
         };
 
-dev {
+        /*
+         * Layer 4 -- QMK _MOUSE.
+         *
+         * DECISION: key-for-key the same positions the dactyl uses --
+         * move on ESDF, scroll on UI, click on JK -- so muscle memory
+         * carries between the two boards. These bindings used to be mixed
+         * into the old RAISE layer alongside numbers and F-keys; splitting
+         * them out is what made a 1:1 mapping possible.
+         *
+         * GAP: QMK's MS_ACL0/1/2 acceleration keys on M / , / . have no
+         * ZMK equivalent. ZMK sets pointer speed on the input listener
+         * rather than with runtime keycodes, so those three positions are
+         * left &trans rather than faked.
+         */
+        mouse_layer {
+            display-name = "Mouse";
             bindings = <
-&bt BT_CLR &bt BT_SEL 0     &bt BT_SEL 1      &bt BT_SEL 2      &bt BT_SEL 3 &bt BT_SEL 4                 &studio_unlock &caps_word &key_repeat &soft_off &trans    &trans
-&kp F1     &kp F2           &kp F3            &kp F4            &kp F5       &kp F6                       &kp F7    &kp F8    &kp F9    &kp F10   &kp F11   &kp F12
-&kp GRAVE  &kp EXCL         &kp AT            &kp HASH          &kp DOLLAR   &kp PRCNT                    &kp LEFT &kp DOWN  &kp UP &kp RIGHT  &kp RPAR  &kp TILDE
-&trans     &ext_power EP_ON &ext_power EP_OFF &ext_power EP_TOG &trans       &trans    &trans   &trans    &trans    &kp MINUS &kp PLUS  &kp LBRC  &kp RBRC  &kp PIPE
-                                              &trans            &trans       &trans    &trans   &trans    &trans    &trans    &trans
+&trans &trans &trans          &trans          &trans           &trans                  &trans &trans         &trans       &trans &trans &trans
+&trans &trans &trans          &mmv MOVE_UP    &trans           &trans                  &trans &msc SCRL_DOWN &msc SCRL_UP &trans &trans &trans
+&trans &trans &mmv MOVE_LEFT  &mmv MOVE_DOWN  &mmv MOVE_RIGHT  &trans                  &trans &mkp LCLK      &mkp RCLK    &trans &trans &trans
+&trans &trans &trans          &trans          &trans           &trans  &trans   &trans &trans &trans         &trans       &trans &trans &trans
+                                              &trans  &trans   &trans  &trans   &trans &trans &trans         &trans
+            >;
+        };
+
+        /*
+         * Layer 5 -- ZMK-only, no QMK counterpart.
+         *
+         * Symbols. The dactyl has the physical keys to keep these on its
+         * base layer; at 58 keys this board does not, so they get a layer.
+         * Held from either the V key or the left/right outer thumbs.
+         */
+        sym_layer {
+            display-name = "Sym";
+            bindings = <
+&bt BT_CLR &bt BT_SEL 0 &bt BT_SEL 1 &bt BT_SEL 2 &bt BT_SEL 3 &bt BT_SEL 4                  &trans    &trans    &trans    &trans    &trans   &trans
+&trans     &kp EXCL     &kp AT       &kp HASH     &kp DOLLAR   &kp PRCNT                     &kp CARET &kp AMPS  &kp ASTRK &kp LPAR  &kp RPAR &trans
+&trans     &kp PLUS     &kp EQUAL    &kp LPAR     &kp RPAR     &kp DQT                       &kp COLON &kp RBKT  &kp LBKT  &kp RBRC  &kp LBRC &trans
+&trans     &kp LT       &kp PIPE     &kp MINUS    &kp GT       &kp BSLH     &trans    &trans &kp GRAVE &kp UNDER &kp FSLH  &kp TILDE &kp SEMI &trans
+                                                  &trans       &trans       &trans    &trans &trans    &trans    &trans    &trans
+            >;
+        };
+
+        /*
+         * Layer 6 -- ZMK-only, no QMK counterpart.
+         *
+         * Numbers and F-keys, same reasoning as SYM. Held from the B/N keys
+         * or the left inner thumb (which is also the quick-tap backspace).
+         *
+         * NOTE: N3 and F3-F5 were restored here when the mouse bindings
+         * moved out to the MOUSE layer -- they had been displaced by
+         * mmv/mkp keys squatting on those positions.
+         */
+        num_layer {
+            display-name = "Num";
+            bindings = <
+&trans    &trans &trans &trans  &trans  &trans                       &trans      &trans    &trans    &trans   &trans    &trans
+&kp GRAVE &kp N1 &kp N2 &kp N3  &kp N4  &kp N5                       &kp N6      &kp N7    &kp N8    &kp N9   &kp N0    &trans
+&kp F1    &kp F2 &kp F3 &kp F4  &kp F5  &kp F6                       &trans      &trans    &trans    &trans   &kp RIGHT &trans
+&kp F7    &kp F8 &kp F9 &kp F10 &kp F11 &kp F12   &trans   &trans    &kp KP_PLUS &kp MINUS &kp EQUAL &kp LBKT &kp RBKT  &kp BSLH
+                        &trans  &trans  &trans    &trans   &trans    &trans      &trans    &trans
             >;
         };
     };
