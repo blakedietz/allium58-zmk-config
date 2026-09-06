@@ -44,6 +44,18 @@
 #include <dt-bindings/zmk/ext_power.h>
 #include <dt-bindings/zmk/pointing.h>
 
+/*
+ * &num_word -- from the zmk-auto-layer module (see config/west.yml). Not part
+ * of upstream ZMK, so this include only resolves once that module is in the
+ * manifest. Its shipped definition is:
+ *
+ *   continue-list = <BACKSPACE DELETE DOT COMMA PLUS MINUS STAR FSLH EQUAL>;
+ *   ignore-numbers;
+ *
+ * overridden just below.
+ */
+#include <behaviors/num_word.dtsi>
+
 #define HYPER LC(LS(LA(LGUI)))
 #define MEH   LC(LS(LALT))
 
@@ -92,6 +104,23 @@
  */
 &soft_off {
     hold-time-ms = <5000>;
+};
+
+/*
+ * DECISION: KP_PLUS added to the stock continue-list. The module's default
+ * list carries PLUS (= LS(EQUAL)), but NUM position 44 is `&kp KP_PLUS` --
+ * the KEYPAD plus, a different HID usage entirely. Without this line, typing
+ * `12+34` would drop out of the layer the instant you hit +.
+ *
+ * The rest of the stock list is kept as-is and all of it is reachable, some
+ * of it by fall-through: NUM leaves position 0 as &trans, so EQUAL comes from
+ * BASE, and STAR/PLUS resolve as shifted N8/EQUAL (the behavior tests implicit
+ * modifiers, so the shifted forms match).
+ *
+ * NOT added: SPACE, RET, TAB. Those are how you LEAVE the layer.
+ */
+&num_word {
+    continue-list = <BACKSPACE DELETE DOT COMMA PLUS KP_PLUS MINUS STAR FSLH EQUAL>;
 };
 
 / {
@@ -357,14 +386,30 @@
          * soft_off moved off position 9 (a digit you hold-space past all
          * the time) to the far-right pinky, and now requires a 5s hold --
          * see the &soft_off override at the top of this file.
+         *
+         * `&num_word NUM` now occupies the position 9 that soft_off vacated.
+         * It is the tap-once counterpart to the three HOLDS that already
+         * reach NUM (`&rpl NUM B`, `&rpl NUM N`, `&ltq NUM BSPC`): tap it,
+         * type a run of digits, and the layer drops itself on the first key
+         * outside the continue-list -- caps_word, two keys to its left, is
+         * the exact same idea for shift. Tapping it again while active
+         * toggles it back off.
+         *
+         * DECISION: parked on DEV rather than on a base-layer key or a
+         * combo. Every base key and all 4 right thumbs are already spoken
+         * for, DEV is one space-hold away, and sitting beside caps_word
+         * makes it self-documenting. Releasing space afterwards does NOT
+         * cancel the layer -- the module's listener ignores key RELEASES
+         * (`if (ev == NULL || !ev->state) return ZMK_EV_EVENT_BUBBLE;`), and
+         * a resolved `&lt DEV SPACE` hold emits no SPACE keycode at all.
          */
         dev_layer {
             display-name = "Dev";
             bindings = <
-  &bt BT_CLR   &bt BT_SEL 0       &bt BT_SEL 1   &bt BT_SEL 2   &bt BT_SEL 3   &bt BT_SEL 4                     &studio_unlock   &caps_word   &key_repeat   &trans      &to GAME   &soft_off
-  &kp F1       &kp F2             &kp F3         &kp F4         &kp F5         &kp F6                           &kp F7           &kp F8       &kp F9        &kp F10     &kp F11    &kp F12
-  &kp GRAVE    &kp EXCL           &kp AT         &kp HASH       &kp DOLLAR     &kp PRCNT                        &kp LEFT         &kp DOWN     &kp UP        &kp RIGHT   &kp RPAR   &kp TILDE
-  &trans       &ext_power EP_ON   &trans         &trans         &trans         &trans         &trans   &trans   &trans           &kp MINUS    &kp PLUS      &kp LBRC    &kp RBRC   &kp PIPE
+  &bt BT_CLR   &bt BT_SEL 0       &bt BT_SEL 1   &bt BT_SEL 2   &bt BT_SEL 3   &bt BT_SEL 4                     &studio_unlock   &caps_word   &key_repeat   &num_word NUM   &to GAME   &soft_off
+  &kp F1       &kp F2             &kp F3         &kp F4         &kp F5         &kp F6                           &kp F7           &kp F8       &kp F9        &kp F10         &kp F11    &kp F12
+  &kp GRAVE    &kp EXCL           &kp AT         &kp HASH       &kp DOLLAR     &kp PRCNT                        &kp LEFT         &kp DOWN     &kp UP        &kp RIGHT       &kp RPAR   &kp TILDE
+  &trans       &ext_power EP_ON   &trans         &trans         &trans         &trans         &trans   &trans   &trans           &kp MINUS    &kp PLUS      &kp LBRC        &kp RBRC   &kp PIPE
                                                  &trans         &trans         &trans         &trans   &trans   &trans           &trans       &trans
             >;
         };
@@ -432,19 +477,35 @@
          * Layer 6 -- ZMK-only, no QMK counterpart.
          *
          * Numbers and F-keys, same reasoning as SYM. Held from the B/N keys
-         * or the left inner thumb (which is also the quick-tap backspace).
+         * or the left inner thumb (which is also the quick-tap backspace),
+         * or TAPPED into via `&num_word NUM` on DEV position 9 -- see the
+         * DEV layer note and the &num_word override at the top of the file.
          *
          * NOTE: N3 and F3-F5 were restored here when the mouse bindings
          * moved out to the MOUSE layer -- they had been displaced by
          * mmv/mkp keys squatting on those positions.
+         *
+         * DECISION: positions 46/47/48 are COMMA/DOT/FSLH, matching the
+         * SAME three positions on BASE. This layer previously had no `.` or
+         * `,` anywhere on it, which is survivable when NUM is a momentary
+         * hold but not once `&num_word NUM` makes it a mode you sit in --
+         * `3.14`, `1,234` and `9/16` were all untypable without dropping
+         * out. Putting them where BASE already has them means no second set
+         * of muscle memory, and it lines up with the continue-list, which
+         * carries DOT/COMMA/FSLH precisely so they do not end the run.
+         *
+         * The EQUAL/LBKT/RBKT they displaced all survive by fall-through --
+         * positions 0, 56 and 57 are &trans on this layer, so they resolve
+         * to BASE's `&kp EQUAL`, `&lt SYM LBKT` (tap) and `&kp RBKT`.
+         * Nothing was actually lost from the layer.
          */
         num_layer {
             display-name = "Num";
             bindings = <
-  &trans      &trans   &trans   &trans    &trans    &trans                      &trans        &trans      &trans      &trans     &trans      &trans
-  &kp GRAVE   &kp N1   &kp N2   &kp N3    &kp N4    &kp N5                      &kp N6        &kp N7      &kp N8      &kp N9     &kp N0      &trans
-  &kp F1      &kp F2   &kp F3   &kp F4    &kp F5    &kp F6                      &trans        &trans      &trans      &trans     &kp RIGHT   &trans
-  &kp F7      &kp F8   &kp F9   &kp F10   &kp F11   &kp F12   &trans   &trans   &kp KP_PLUS   &kp MINUS   &kp EQUAL   &kp LBKT   &kp RBKT    &kp BSLH
+  &trans      &trans   &trans   &trans    &trans    &trans                      &trans        &trans      &trans      &trans    &trans      &trans
+  &kp GRAVE   &kp N1   &kp N2   &kp N3    &kp N4    &kp N5                      &kp N6        &kp N7      &kp N8      &kp N9    &kp N0      &trans
+  &kp F1      &kp F2   &kp F3   &kp F4    &kp F5    &kp F6                      &trans        &trans      &trans      &trans    &kp RIGHT   &trans
+  &kp F7      &kp F8   &kp F9   &kp F10   &kp F11   &kp F12   &trans   &trans   &kp KP_PLUS   &kp MINUS   &kp COMMA   &kp DOT   &kp FSLH    &kp BSLH
                                 &trans    &trans    &trans    &trans   &trans   &trans        &trans      &trans
             >;
         };

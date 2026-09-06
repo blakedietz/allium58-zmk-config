@@ -2,6 +2,8 @@ manifest:
   remotes:
     - name: zmkfirmware
       url-base: https://github.com/zmkfirmware
+    - name: urob
+      url-base: https://github.com/urob
     # Additional modules containing boards/shields/custom code can be listed here as well
     # See https://docs.zephyrproject.org/3.2.0/develop/west/manifest.html#projects
   projects:
@@ -9,5 +11,16 @@ manifest:
       remote: zmkfirmware
       revision: main
       import: app/west.yml
+    # zmk-auto-layer provides &num_word (see the DEV layer in lily58.keymap).
+    #
+    # DECISION: both this and zmk above track `main`, deliberately. The module's
+    # tagged releases (v0.3 and earlier) pair with ZMK v0.3, which predates the
+    # Zephyr 4.1 migration this config already depends on -- `nice_nano//zmk` in
+    # build.yaml is hardware-model-v2 syntax that ZMK v0.3 cannot parse. Tracking
+    # main on both keeps the pair consistent; the cost is that an upstream break
+    # lands here with no warning, so check CI before flashing.
+    - name: zmk-auto-layer
+      remote: urob
+      revision: main
   self:
     path: config
