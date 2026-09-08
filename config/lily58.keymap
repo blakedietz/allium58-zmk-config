@@ -20,9 +20,11 @@
  * QMK feature -> ZMK equivalent, so the two configs can be reasoned about
  * together:
  *
- *   CHORDAL_HOLD              -> hold-trigger-key-positions on hml/hmr
- *                                (both express "only hold if the next key
- *                                 is on the other hand")
+ *   CHORDAL_HOLD              -> hold-trigger-key-positions PLUS
+ *                                hold-trigger-on-release on hml/hmr (both
+ *                                express "only hold if the key that follows
+ *                                is on the other hand"; the second property
+ *                                is what also allows same-hand mod stacks)
  *   FLOW_TAP_TERM 150         -> require-prior-idle-ms = <125>
  *   QUICK_TAP_TERM (on by     -> quick-tap-ms (OFF by default in ZMK --
  *     default in QMK)            this is why backspace needed ltq below)
@@ -128,7 +130,7 @@
     behaviors {
         /*
          * hml / hmr -- home row mods. Together these are ZMK's answer to
-         * QMK's CHORDAL_HOLD: a mod only engages if the NEXT key pressed is
+         * QMK's CHORDAL_HOLD: a mod only engages if the key that FOLLOWS is
          * on the opposite hand, so same-hand rolls like `zx` emit letters
          * instead of Ctrl-X. QMK derives handedness from the matrix half
          * (see chordal_hold_handedness() in keymap.c); ZMK has no such
@@ -137,6 +139,23 @@
          * require-prior-idle-ms = 125 mirrors QMK's FLOW_TAP_TERM 150: if
          * you were already typing, the key resolves as a tap immediately
          * and never as a mod.
+         *
+         * DECISION: hold-trigger-on-release is the other half of
+         * CHORDAL_HOLD, and without it these were NOT equivalent. Bare
+         * hold-trigger-key-positions decides at PRESS time, so holding
+         * `&hml LGUI C` and then reaching for `&hml LALT X` -- both left
+         * hand, so 38 is not in C's list -- resolved C to a literal `c` the
+         * instant X went down. That made every same-hand mod STACK
+         * unreachable: Cmd+Opt+I, Ctrl+Alt+Del, and Hyper (on ESC/SQT)
+         * plus any other mod on its own hand. Only Ctrl+Shift survived,
+         * and only because Shift is a plain &kp rather than a hold-tap.
+         *
+         * Setting it defers the decision for non-listed keys to RELEASE
+         * instead, so the pair waits to see whether an opposite-hand key
+         * eventually follows -- which is what QMK does natively. The idle
+         * guard above is what keeps the deferral from costing anything
+         * while typing: a mid-word roll has already been forced to a tap
+         * before this ever applies, so it only governs deliberate chords.
          */
         hml: home_row_mod_left {
             compatible = "zmk,behavior-hold-tap";
@@ -148,6 +167,7 @@
             bindings = <&kp>, <&kp>;
             // right hand (6-11,18-23,30-35,43-49) + both thumb clusters (50-57)
             hold-trigger-key-positions = <6 7 8 9 10 11 18 19 20 21 22 23 30 31 32 33 34 35 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57>;
+            hold-trigger-on-release;
         };
 
         hmr: home_row_mod_right {
@@ -160,6 +180,7 @@
             bindings = <&kp>, <&kp>;
             // left hand (0-5,12-17,24-29,36-42) + both thumb clusters (50-57)
             hold-trigger-key-positions = <0 1 2 3 4 5 12 13 14 15 16 17 24 25 26 27 28 29 36 37 38 39 40 41 42 50 51 52 53 54 55 56 57>;
+            hold-trigger-on-release;
         };
 
         /*
